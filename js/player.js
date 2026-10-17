@@ -2,7 +2,7 @@
  * Player integration for Hls.js with Cloudflare Worker Proxy & xhrSetup
  */
 
-window.PROXY_URL = "https://brazilian-search-proxy.YOUR-SUBDOMAIN.workers.dev/?url=";
+window.PROXY_URL = "https://minha-proxy.meucu0108.workers.dev/?url=";
 
 window.PlayerManager = {
     hls: null,
