@@ -4,7 +4,6 @@
 window.PROXY_URL = "https://minha-proxy.meucu0108.workers.dev/?url=";
 
 window.PlayerManager = {
-    hls: null,
     video: null,
     loadingEl: null,
     errorEl: null,
@@ -12,7 +11,6 @@ window.PlayerManager = {
     currentType: 'movie',
     currentSeason: 1,
     currentEpisode: 1,
-    providerKey: 'superflix',
 
     async playContent(videoElement, tmdbId, type = 'movie', season = 1, episode = 1, loadingEl, errorEl) {
         this.video = videoElement;
@@ -26,41 +24,26 @@ window.PlayerManager = {
         if (this.loadingEl) this.loadingEl.style.display = 'block';
         if (this.errorEl) this.errorEl.style.display = 'none';
 
-        await this.loadSelectedProvider();
-    },
+        const providers = window.PROVIDERS || {
+            superflix: { getMovie: (id) => `https://superflixapi.top/filme/${id}`, getTv: (id, s, e) => `https://superflixapi.top/serie/${id}/${s}/${e}` },
+            warezcdn: { getMovie: (id) => `https://embed.warezcdn.com/filme/${id}`, getTv: (id, s, e) => `https://embed.warezcdn.com/serie/${id}/${s}/${e}` },
+            embedflix: { getMovie: (id) => `https://embedflix.net/filme/${id}`, getTv: (id, s, e) => `https://embedflix.net/serie/${id}/${s}/${e}` },
+            twembed: { getMovie: (id) => `https://www.2embed.cc/embed/${id}`, getTv: (id, s, e) => `https://www.2embed.cc/embedtv/${id}&s=${s}&e=${e}` }
+        };
 
-    async loadSelectedProvider() {
-        const providers = window.PROVIDERS;
-        if (!providers) {
-            this.handleError("Nenhum provedor configurado.");
-            return;
-        }
-
-        const keys = window.PROVIDER_KEYS || Object.keys(providers);
-        const activeKey = window.currentProvider || keys[0] || 'superflix';
-        this.providerKey = activeKey;
-
-        const p = providers[activeKey];
-        if (!p) {
-            this.handleError("Provedor selecionado não encontrado.");
-            return;
-        }
+        const activeKey = window.currentProvider || 'superflix';
+        const p = providers[activeKey] || providers['superflix'];
 
         const rawUrl = this.currentType === 'movie'
             ? p.getMovie(this.currentTmdbId)
             : p.getTv(this.currentTmdbId, this.currentSeason, this.currentEpisode);
 
-        console.log(`Carregando provedor [${activeKey}]: ${rawUrl}`);
-        
-        // For embed / iframe providers or HLS
-        // If it's an iframe player or direct video element
+        console.log(`Carregando stream dublado [${activeKey}]: ${rawUrl}`);
         this.loadStream(rawUrl);
     },
 
     loadStream(url) {
         if (this.loadingEl) this.loadingEl.style.display = 'none';
-        
-        // Check if we have an iframe player or video element
         const iframe = document.getElementById('player-frame');
         const video = this.video;
 
@@ -82,6 +65,15 @@ window.PlayerManager = {
     }
 };
 
+window.chooseProvider = function(key) {
+    window.currentProvider = key;
+    const sel = document.getElementById('provider-select');
+    if (sel) sel.value = key;
+    if (window.LAST_PLAY) {
+        window.playContent(window.LAST_PLAY.id, window.LAST_PLAY.type, window.LAST_PLAY.s, window.LAST_PLAY.e);
+    }
+};
+
 window.playContent = async function(id, type, s, e) {
     if (typeof closeDonate === 'function') closeDonate();
     const pType = (type === 'tv' || type === 'serie') ? 'tv' : 'movie';
@@ -97,19 +89,9 @@ window.playContent = async function(id, type, s, e) {
     player.classList.add('open');
     document.body.classList.add('lock');
 
-    // Popular provider-select se estiver vazio
     const sel = document.getElementById('provider-select');
-    if (sel && sel.options.length === 0) {
-        const keys = window.PROVIDER_KEYS || Object.keys(window.PROVIDERS || {});
-        const P = window.PROVIDERS || {};
-        for (let i = 0; i < keys.length; i++) {
-            const k = keys[i];
-            const opt = document.createElement('option');
-            opt.value = k;
-            opt.textContent = 'Opção ' + (i + 1) + ' (Dublado PT-BR) - ' + (P[k].label || k);
-            sel.appendChild(opt);
-        }
-        if (window.currentProvider) sel.value = window.currentProvider;
+    if (sel && window.currentProvider) {
+        sel.value = window.currentProvider;
     }
 
     await window.PlayerManager.playContent(video, id, pType, s, e, loading, errorEl);

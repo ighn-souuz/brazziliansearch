@@ -25,4 +25,4 @@ window.PROVIDERS = {
 };
 
 window.PROVIDER_KEYS = Object.keys(window.PROVIDERS);
-window.currentProvider = 'superflix';
+window.currentProvider = window.currentProvider || 'superflix';
