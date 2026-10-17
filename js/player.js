@@ -1,13 +1,14 @@
 /**
- * Player integration for Hls.js with Proxy routing & xhrSetup
+ * Player integration for Hls.js with Cloudflare Worker Proxy & xhrSetup
  */
+
+window.PROXY_URL = "https://brazilian-search-proxy.YOUR-SUBDOMAIN.workers.dev/?url=";
 
 window.PlayerManager = {
     hls: null,
     video: null,
     loadingEl: null,
     errorEl: null,
-    proxyUrl: 'http://localhost:3001/proxy?url=',
 
     async playStream(videoElement, url, loadingEl, errorEl) {
         this.video = videoElement;
@@ -17,8 +18,8 @@ window.PlayerManager = {
         if (this.loadingEl) this.loadingEl.style.display = 'block';
         if (this.errorEl) this.errorEl.style.display = 'none';
 
-        // Route through proxy to prevent CORS and 403 blocks
-        const proxiedUrl = this.proxyUrl + encodeURIComponent(url);
+        // Route through Cloudflare Worker proxy
+        const proxiedUrl = window.PROXY_URL + encodeURIComponent(url);
 
         try {
             if (this.hls) {
@@ -31,9 +32,8 @@ window.PlayerManager = {
                     enableWorker: true,
                     lowLatencyMode: true,
                     xhrSetup: function (xhr, requestUrl) {
-                        // If not already proxied, route through local proxy
-                        if (!requestUrl.includes('localhost:3001')) {
-                            xhr.open('GET', 'http://localhost:3001/proxy?url=' + encodeURIComponent(requestUrl), true);
+                        if (!requestUrl.includes('workers.dev')) {
+                            xhr.open('GET', window.PROXY_URL + encodeURIComponent(requestUrl), true);
                         }
                     }
                 });
