@@ -1140,20 +1140,6 @@ const HASH_MAP = {
     /* Cada provider resolve via data-* no card com o ID do arquivo hospedado */
     /* Conteúdo: dublado em PT-BR, bate com os títulos do catálogo */
 
-    // Novos provedores HLS dinâmicos
-    const PROVIDERS = {};
-    if (window.providers) {
-        window.providers.forEach((p, idx) => {
-            PROVIDERS[p.id || 'prov_' + idx] = p;
-        });
-    }
-    window.PROVIDERS = PROVIDERS;
-    const PROVIDER_KEYS = Object.keys(PROVIDERS);
-    let currentProvider = 'hls_test';
-    window.currentProvider = 'hls_test';
-    window.PROVIDER_KEYS = PROVIDER_KEYS;
-    window.LAST_PLAY = null;
-    window.LAST_CARD = null;
 
 async function playContent(id, type, s = 1, e = 1) {
     closeDonate();
