@@ -2516,7 +2516,7 @@ loadHome();
 
 </body>
 <script>
-(function(){
+window.addEventListener('DOMContentLoaded', function(){
     var sel = document.getElementById('provider-select');
     if (!sel) return;
     sel.innerHTML = '';
@@ -2540,6 +2540,6 @@ loadHome();
         sel.appendChild(opt);
     }
     sel.value = cur;
-})();
+});
 </script>
 </html>
