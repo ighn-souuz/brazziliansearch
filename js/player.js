@@ -97,5 +97,20 @@ window.playContent = async function(id, type, s, e) {
     player.classList.add('open');
     document.body.classList.add('lock');
 
+    // Popular provider-select se estiver vazio
+    const sel = document.getElementById('provider-select');
+    if (sel && sel.options.length === 0) {
+        const keys = window.PROVIDER_KEYS || Object.keys(window.PROVIDERS || {});
+        const P = window.PROVIDERS || {};
+        for (let i = 0; i < keys.length; i++) {
+            const k = keys[i];
+            const opt = document.createElement('option');
+            opt.value = k;
+            opt.textContent = 'Opção ' + (i + 1) + ' (Dublado PT-BR) - ' + (P[k].label || k);
+            sel.appendChild(opt);
+        }
+        if (window.currentProvider) sel.value = window.currentProvider;
+    }
+
     await window.PlayerManager.playContent(video, id, pType, s, e, loading, errorEl);
 };
