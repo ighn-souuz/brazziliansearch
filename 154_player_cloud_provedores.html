@@ -1242,12 +1242,11 @@ function closePlayer() {
 }
 
 function chooseProvider(key) {
-    if (!PROVIDERS[key]) return;
-    currentProvider = key;
+    if (!window.PROVIDERS[key]) return;
+    window.currentProvider = key;
     const sel = document.getElementById('provider-select');
     if (sel) sel.value = key;
     if (window.LAST_PLAY) {
-        window.LAST_PLAY.tried = [key];
         playContent(window.LAST_PLAY.id, window.LAST_PLAY.type, window.LAST_PLAY.s, window.LAST_PLAY.e);
     }
 }
