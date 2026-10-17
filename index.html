@@ -1462,8 +1462,8 @@ function setCatTab(tab){
 "use strict";
 
 /* ================= CONFIG ================= */
-const API  = function(){ return window.BASE_URL; };
-const KEY  = function(){ return window.API_KEY; };
+const API  = function(){ return window.BASE_URL || 'https://minha-proxy.meucu0108.workers.dev/3'; };
+const KEY  = function(){ return window.API_KEY || '9682b1ce677951d528cfd7ea0d9e642a'; };
 const LANG = function(){ return window.LANGUAGE || 'pt-BR'; };
 
 const LINKS = {
@@ -1555,7 +1555,8 @@ async function api(path, params, tries){
     language: LANG(),
     api_key: KEY()
   }));
-  const url = API() + path + '?' + qs.toString();
+  const targetUrl = 'https://api.themoviedb.org/3' + path + '?' + qs.toString();
+  const url = (window.PROXY_URL || 'https://minha-proxy.meucu0108.workers.dev/?url=') + encodeURIComponent(targetUrl);
   for (let i = 0; i < tries; i++){
     try {
       const r = await fetch(url);
