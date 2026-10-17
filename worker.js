@@ -1,7 +1,8 @@
 /**
- * Cloudflare Worker Proxy for HLS Streams (.m3u8 and .ts)
- * Bypasses CORS and injects Referer/Origin headers for media providers.
+ * Cloudflare Worker Proxy for HLS Streams and TMDb API with secure API Key injection
  */
+const TMDB_API_KEY = "9682b1ce677951d528cfd7ea0d9e642a";
+
 addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request));
 });
@@ -9,20 +10,37 @@ addEventListener('fetch', event => {
 async function handleRequest(request) {
   const urlObj = new URL(request.url);
   
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': '*',
+  };
+
   if (request.method === 'OPTIONS') {
     return new Response(null, {
       status: 204,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': '*',
-      }
+      headers: corsHeaders
     });
   }
 
-  const targetUrl = urlObj.searchParams.get('url');
+  let targetUrl = urlObj.searchParams.get('url');
+  if (!targetUrl && urlObj.pathname.startsWith('/3/')) {
+    targetUrl = 'https://api.themoviedb.org' + urlObj.pathname + urlObj.search;
+  }
+
+  // If requesting TMDb API directly without key or via proxy, ensure API key is present
+  if (targetUrl && targetUrl.includes('api.themoviedb.org')) {
+    if (!targetUrl.includes('api_key=')) {
+      const separator = targetUrl.includes('?') ? '&' : '?';
+      targetUrl = `${targetUrl}${separator}api_key=${TMDB_API_KEY}`;
+    }
+  }
+
   if (!targetUrl) {
-    return new Response('Missing ?url= parameter', { status: 400 });
+    return new Response(JSON.stringify({ error: "Missing ?url= or /3/ path" }), { 
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 
   try {
@@ -41,7 +59,6 @@ async function handleRequest(request) {
 
     const contentType = upstreamResponse.headers.get('content-type') || '';
     
-    // If it's an .m3u8 manifest, rewrite internal URIs to go through this worker proxy
     if (targetUrl.includes('.m3u8') || contentType.includes('mpegurl') || contentType.includes('application/vnd.apple.mpegurl')) {
       let text = await upstreamResponse.text();
       const workerBase = `${urlObj.protocol}//${urlObj.host}${urlObj.pathname}`;
@@ -65,15 +82,16 @@ async function handleRequest(request) {
       return new Response(rewritten, {
         status: upstreamResponse.status,
         headers: {
-          'Content-Type': 'application/vnd.apple.mpegurl',
-          'Access-Control-Allow-Origin': '*'
+          ...corsHeaders,
+          'Content-Type': 'application/vnd.apple.mpegurl'
         }
       });
     }
 
-    // Binary stream (.ts segments, etc.)
     const newHeaders = new Headers(upstreamResponse.headers);
-    newHeaders.set('Access-Control-Allow-Origin', '*');
+    for (const [key, value] of Object.entries(corsHeaders)) {
+      newHeaders.set(key, value);
+    }
 
     return new Response(upstreamResponse.body, {
       status: upstreamResponse.status,
@@ -81,9 +99,9 @@ async function handleRequest(request) {
     });
 
   } catch (err) {
-    return new Response('Proxy Error: ' + err.message, { 
+    return new Response(JSON.stringify({ error: err.message }), { 
       status: 500,
-      headers: { 'Access-Control-Allow-Origin': '*' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 }
