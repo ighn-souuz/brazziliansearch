@@ -1,5 +1,5 @@
 /**
- * Hls.js Player Manager with Cloudflare Worker Proxy & Fallback
+ * Hls.js Player Manager with Cloudflare Worker Proxy & Fallback (Dublado PT-BR)
  */
 window.PROXY_URL = "https://minha-proxy.meucu0108.workers.dev/?url=";
 
@@ -12,7 +12,7 @@ window.PlayerManager = {
     currentType: 'movie',
     currentSeason: 1,
     currentEpisode: 1,
-    providerIndex: 0,
+    providerKey: 'superflix',
 
     async playContent(videoElement, tmdbId, type = 'movie', season = 1, episode = 1, loadingEl, errorEl) {
         this.video = videoElement;
@@ -22,83 +22,54 @@ window.PlayerManager = {
         this.currentEpisode = episode;
         this.loadingEl = loadingEl;
         this.errorEl = errorEl;
-        this.providerIndex = 0;
 
         if (this.loadingEl) this.loadingEl.style.display = 'block';
         if (this.errorEl) this.errorEl.style.display = 'none';
 
-        await this.tryNextProvider();
+        await this.loadSelectedProvider();
     },
 
-    async tryNextProvider() {
-        if (!window.PROVIDERS || this.providerIndex >= window.PROVIDERS.length) {
-            this.handleError("Todos os provedores falharam para este título.");
+    async loadSelectedProvider() {
+        const providers = window.PROVIDERS;
+        if (!providers) {
+            this.handleError("Nenhum provedor configurado.");
             return;
         }
 
-        const provider = window.PROVIDERS[this.providerIndex];
-        console.log(`Tentando provedor [${this.providerIndex + 1}/${window.PROVIDERS.length}]: ${provider.name}`);
+        const keys = window.PROVIDER_KEYS || Object.keys(providers);
+        const activeKey = window.currentProvider || keys[0] || 'superflix';
+        this.providerKey = activeKey;
 
-        try {
-            const rawUrl = this.currentType === 'movie'
-                ? provider.getMovieUrl(this.currentTmdbId)
-                : provider.getTvUrl(this.currentTmdbId, this.currentSeason, this.currentEpisode);
-
-            const proxiedStreamUrl = window.PROXY_URL + encodeURIComponent(rawUrl);
-            this.loadStream(proxiedStreamUrl);
-        } catch (e) {
-            console.warn(`Erro no provedor ${provider.name}, tentando próximo...`, e);
-            this.providerIndex++;
-            this.tryNextProvider();
+        const p = providers[activeKey];
+        if (!p) {
+            this.handleError("Provedor selecionado não encontrado.");
+            return;
         }
+
+        const rawUrl = this.currentType === 'movie'
+            ? p.getMovie(this.currentTmdbId)
+            : p.getTv(this.currentTmdbId, this.currentSeason, this.currentEpisode);
+
+        console.log(`Carregando provedor [${activeKey}]: ${rawUrl}`);
+        
+        // For embed / iframe providers or HLS
+        // If it's an iframe player or direct video element
+        this.loadStream(rawUrl);
     },
 
-    loadStream(streamUrl) {
-        if (this.hls) {
-            this.hls.destroy();
-            this.hls = null;
+    loadStream(url) {
+        if (this.loadingEl) this.loadingEl.style.display = 'none';
+        
+        // Check if we have an iframe player or video element
+        const iframe = document.getElementById('player-frame');
+        const video = this.video;
+
+        if (iframe) {
+            iframe.src = url;
+            iframe.style.display = 'block';
         }
-
-        if (Hls.isSupported()) {
-            this.hls = new Hls({
-                enableWorker: true,
-                lowLatencyMode: true,
-                xhrSetup: (xhr, requestUrl) => {
-                    if (!requestUrl.includes('workers.dev')) {
-                        xhr.open('GET', window.PROXY_URL + encodeURIComponent(requestUrl), true);
-                    }
-                }
-            });
-
-            this.hls.loadSource(streamUrl);
-            this.hls.attachMedia(this.video);
-
-            this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                if (this.loadingEl) this.loadingEl.style.display = 'none';
-                this.video.play().catch(err => console.log("Autoplay bloqueado:", err));
-            });
-
-            this.hls.on(Hls.Events.ERROR, (event, data) => {
-                if (data.fatal) {
-                    console.error("HLS Erro Fatal no provedor atual:", data);
-                    this.hls.destroy();
-                    this.hls = null;
-                    this.providerIndex++;
-                    this.tryNextProvider();
-                }
-            });
-        } else if (this.video.canPlayType('application/vnd.apple.mpegurl')) {
-            this.video.src = streamUrl;
-            this.video.addEventListener('loadedmetadata', () => {
-                if (this.loadingEl) this.loadingEl.style.display = 'none';
-                this.video.play();
-            });
-            this.video.addEventListener('error', () => {
-                this.providerIndex++;
-                this.tryNextProvider();
-            });
-        } else {
-            this.handleError("HLS não suportado neste navegador.");
+        if (video) {
+            video.style.display = 'none';
         }
     },
 
@@ -108,16 +79,23 @@ window.PlayerManager = {
             this.errorEl.textContent = msg;
             this.errorEl.style.display = 'block';
         }
-    },
-
-    stop() {
-        if (this.hls) {
-            this.hls.destroy();
-            this.hls = null;
-        }
-        if (this.video) {
-            this.video.pause();
-            this.video.src = '';
-        }
     }
+};
+
+window.playContent = async function(id, type, s, e) {
+    if (typeof closeDonate === 'function') closeDonate();
+    const pType = (type === 'tv' || type === 'serie') ? 'tv' : 'movie';
+    window.LAST_PLAY = { id, type: pType, s, e };
+    
+    const player = document.getElementById('player');
+    const video = document.getElementById('player-video');
+    const loading = document.getElementById('player-loading');
+    const errorEl = document.getElementById('player-error');
+
+    if (!player) return;
+
+    player.classList.add('open');
+    document.body.classList.add('lock');
+
+    await window.PlayerManager.playContent(video, id, pType, s, e, loading, errorEl);
 };
