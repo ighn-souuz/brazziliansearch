@@ -1,5 +1,5 @@
 /**
- * Cloudflare Worker Proxy for HLS Streams and TMDb API with secure API Key injection
+ * Cloudflare Worker Proxy for HLS Streams and TMDb API with robust path handling
  */
 const TMDB_API_KEY = "9682b1ce677951d528cfd7ea0d9e642a";
 
@@ -24,11 +24,18 @@ async function handleRequest(request) {
   }
 
   let targetUrl = urlObj.searchParams.get('url');
-  if (!targetUrl && urlObj.pathname.startsWith('/3/')) {
-    targetUrl = 'https://api.themoviedb.org' + urlObj.pathname + urlObj.search;
+  
+  if (!targetUrl) {
+    // If path starts with /3/, forward to api.themoviedb.org/3/...
+    if (urlObj.pathname.startsWith('/3/')) {
+      targetUrl = 'https://api.themoviedb.org' + urlObj.pathname + urlObj.search;
+    } else if (urlObj.pathname !== '/' && urlObj.pathname !== '') {
+      // If path is something like /trending/... or /movie/... forward to api.themoviedb.org/3/...
+      targetUrl = 'https://api.themoviedb.org/3' + urlObj.pathname + urlObj.search;
+    }
   }
 
-  // If requesting TMDb API directly without key or via proxy, ensure API key is present
+  // If requesting TMDb API, ensure API key is present
   if (targetUrl && targetUrl.includes('api.themoviedb.org')) {
     if (!targetUrl.includes('api_key=')) {
       const separator = targetUrl.includes('?') ? '&' : '?';
@@ -37,7 +44,7 @@ async function handleRequest(request) {
   }
 
   if (!targetUrl) {
-    return new Response(JSON.stringify({ error: "Missing ?url= or /3/ path" }), { 
+    return new Response(JSON.stringify({ error: "Missing ?url= or valid API path" }), { 
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
