@@ -22,11 +22,9 @@
 #player-header {
     position: absolute; top: 0; left: 0; width: 100%;
     padding: 20px; display: flex; justify-content: space-between;
-    align-items: center; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
-    z-index: 10; transition: opacity 0.3s; opacity: 0;
-    pointer-events: none;
+    align-items: center; background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent);
+    z-index: 10; opacity: 1; pointer-events: auto;
 }
-#player:hover #player-header { opacity: 1; pointer-events: auto; }
 .p-btn {
     background: rgba(255,255,255,0.1); color: #fff; border: none;
     padding: 8px 16px; border-radius: 4px; cursor: pointer;
