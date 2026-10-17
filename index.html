@@ -2519,16 +2519,17 @@ loadHome();
 (function(){
     var sel = document.getElementById('provider-select');
     if (!sel) return;
+    sel.innerHTML = '';
     var keys = (window.PROVIDER_KEYS || Object.keys(window.PROVIDERS || {}));
     var P = window.PROVIDERS || {};
-    var cur = window.currentProvider || 'embedplayapi';
+    var cur = window.currentProvider || keys[0] || 'superflix';
     var hasProviders = false;
     for (var i=0; i<keys.length; i++) {
         var k = keys[i];
         hasProviders = true;
         var opt = document.createElement('option');
         opt.value = k;
-        opt.textContent = P[k].label;
+        opt.textContent = 'Opção ' + (i + 1) + ' (Dublado PT-BR) - ' + (P[k].label || k);
         sel.appendChild(opt);
     }
     if (!hasProviders) {

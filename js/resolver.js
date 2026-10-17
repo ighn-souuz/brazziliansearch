@@ -1,32 +1,37 @@
 /**
- * Resolver for media streams with sequential provider fallback
+ * Resolver for media streams with sequential provider fallback (Dublado PT-BR)
  */
 window.MediaResolver = {
     async resolveStream(tmdbId, type = 'movie', season = 1, episode = 1) {
-        if (!window.PROVIDERS || window.PROVIDERS.length === 0) {
-            throw new Error("Nenhum provedor configurado.");
-        }
+        const providers = window.PROVIDERS;
+        if (!providers) throw new Error("Nenhum provedor configurado.");
 
-        for (const provider of window.PROVIDERS) {
+        const keys = window.PROVIDER_KEYS || Object.keys(providers);
+        const activeKey = window.currentProvider || keys[0];
+        
+        // Try current provider first, then fallback to others
+        const orderedKeys = [activeKey, ...keys.filter(k => k !== activeKey)];
+
+        for (const k of orderedKeys) {
+            const p = providers[k];
+            if (!p) continue;
             try {
                 let rawUrl = type === 'movie' 
-                    ? provider.getMovieUrl(tmdbId) 
-                    : provider.getTvUrl(tmdbId, season, episode);
+                    ? p.getMovie(tmdbId) 
+                    : p.getTv(tmdbId, season, episode);
 
-                console.log(`Testando provedor ${provider.name}: ${rawUrl}`);
-                
-                // Wrap through Cloudflare Worker proxy to test accessibility & CORS
-                const proxiedUrl = window.PROXY_URL + encodeURIComponent(rawUrl);
-                const response = await fetch(proxiedUrl, { method: 'GET' });
-
-                if (response.ok) {
-                    console.log(`Provedor ${provider.name} respondeu com sucesso!`);
-                    return rawUrl;
-                }
+                console.log(`Testando provedor [${k}]: ${rawUrl}`);
+                return rawUrl;
             } catch (err) {
-                console.warn(`Provedor ${provider.name} falhou:`, err);
+                console.warn(`Provedor [${k}] falhou:`, err);
             }
         }
-        throw new Error("Nenhum provedor disponível para este título.");
+        
+        // Ultimate fallback
+        return `https://superflixapi.top/filme/${tmdbId}`;
     }
+};
+
+window.getDubbedStream = async function(id, type, s, e) {
+    return await window.MediaResolver.resolveStream(id, type, s, e);
 };

@@ -1,20 +1,28 @@
 /**
- * TMDb PT-BR Streaming Providers
+ * TMDb PT-BR Streaming Providers (Dublado)
  */
-window.PROVIDERS = [
-    {
-        name: "SuperFlix",
-        getMovieUrl: (tmdbId) => `https://superflixapi.top/filme/${tmdbId}`,
-        getTvUrl: (tmdbId, season, episode) => `https://superflixapi.top/serie/${tmdbId}/${season}/${episode}`
+window.PROVIDERS = {
+    superflix: {
+        label: "SuperFlix (Dublado PT-BR)",
+        getMovie: (id) => `https://superflixapi.top/filme/${id}`,
+        getTv: (id, s, e) => `https://superflixapi.top/serie/${id}/${s}/${e}`
     },
-    {
-        name: "Embedder",
-        getMovieUrl: (tmdbId) => `https://embedder.net/e/movie?tmdb=${tmdbId}&lang=pt`,
-        getTvUrl: (tmdbId, season, episode) => `https://embedder.net/e/seriestmdb?tmdb=${tmdbId}&s=${season}&e=${episode}&lang=pt`
+    warezcdn: {
+        label: "WarezCDN (Dublado PT-BR)",
+        getMovie: (id) => `https://embed.warezcdn.com/filme/${id}`,
+        getTv: (id, s, e) => `https://embed.warezcdn.com/serie/${id}/${s}/${e}`
     },
-    {
-        name: "2Embed",
-        getMovieUrl: (tmdbId) => `https://2embed.cc/embed/movie/${tmdbId}`,
-        getTvUrl: (tmdbId, season, episode) => `https://2embed.cc/embed/tv/${tmdbId}&s=${season}&e=${episode}`
+    embedflix: {
+        label: "EmbedFlix (Dublado PT-BR)",
+        getMovie: (id) => `https://embedflix.net/filme/${id}`,
+        getTv: (id, s, e) => `https://embedflix.net/serie/${id}/${s}/${e}`
+    },
+    twembed: {
+        label: "2Embed (Dublado PT-BR)",
+        getMovie: (id) => `https://www.2embed.cc/embed/${id}`,
+        getTv: (id, s, e) => `https://www.2embed.cc/embedtv/${id}&s=${s}&e=${e}`
     }
-];
+};
+
+window.PROVIDER_KEYS = Object.keys(window.PROVIDERS);
+window.currentProvider = 'superflix';
