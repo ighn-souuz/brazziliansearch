@@ -762,29 +762,29 @@ footer{margin-top:56px;background:var(--bg2);border-top:1px solid var(--line)}
 
 <script>
 window.PROVIDERS = {
+    vidsrc: {
+        label: "VidSrc (Multi/PT-BR)",
+        getMovie: (id) => `https://vidsrc.me/embed/movie?tmdb=${id}`,
+        getTv: (id, s, e) => `https://vidsrc.me/embed/tv?tmdb=${id}&season=${s}&episode=${e}`
+    },
+    embedsu: {
+        label: "Embed.su (Global / Dublado)",
+        getMovie: (id) => `https://embed.su/embed/movie/${id}`,
+        getTv: (id, s, e) => `https://embed.su/embed/tv/${id}/${s}/${e}`
+    },
+    multiembed: {
+        label: "MultiEmbed (Streaming Hub)",
+        getMovie: (id) => `https://multiembed.mov/?video_id=${id}&tmdb=1`,
+        getTv: (id, s, e) => `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}`
+    },
     superflix: {
-        label: "SuperFlix (Dublado PT-BR)",
+        label: "SuperFlix (PT-BR)",
         getMovie: (id) => `https://superflixapi.top/filme/${id}`,
         getTv: (id, s, e) => `https://superflixapi.top/serie/${id}/${s}/${e}`
-    },
-    warezcdn: {
-        label: "WarezCDN (Dublado PT-BR)",
-        getMovie: (id) => `https://embed.warezcdn.com/filme/${id}`,
-        getTv: (id, s, e) => `https://embed.warezcdn.com/serie/${id}/${s}/${e}`
-    },
-    embedflix: {
-        label: "EmbedFlix (Dublado PT-BR)",
-        getMovie: (id) => `https://embedflix.net/filme/${id}`,
-        getTv: (id, s, e) => `https://embedflix.net/serie/${id}/${s}/${e}`
-    },
-    twembed: {
-        label: "2Embed (Dublado PT-BR)",
-        getMovie: (id) => `https://www.2embed.cc/embed/${id}`,
-        getTv: (id, s, e) => `https://www.2embed.cc/embedtv/${id}&s=${s}&e=${e}`
     }
 };
 window.PROVIDER_KEYS = Object.keys(window.PROVIDERS);
-window.currentProvider = 'superflix';
+window.currentProvider = 'vidsrc';
 </script>
 
 
@@ -1166,15 +1166,9 @@ async function playContent(id, type, s = 1, e = 1) {
     if (errorEl) errorEl.style.display = 'none';
     if (video) video.style.display = 'none';
 
-    const activeKey = window.currentProvider || 'superflix';
-    const embedMap = {
-        superflix: pType === 'movie' ? `https://superflixapi.top/filme/${id}` : `https://superflixapi.top/serie/${id}/${s}/${e}`,
-        warezcdn: pType === 'movie' ? `https://embed.warezcdn.com/filme/${id}` : `https://embed.warezcdn.com/serie/${id}/${s}/${e}`,
-        embedflix: pType === 'movie' ? `https://embedflix.net/filme/${id}` : `https://embedflix.net/serie/${id}/${s}/${e}`,
-        twembed: pType === 'movie' ? `https://www.2embed.cc/embed/${id}` : `https://www.2embed.cc/embedtv/${id}&s=${s}&e=${e}`
-    };
-
-    const targetUrl = embedMap[activeKey] || embedMap['superflix'];
+    const activeKey = window.currentProvider || 'vidsrc';
+    const prov = (window.PROVIDERS && window.PROVIDERS[activeKey]) ? window.PROVIDERS[activeKey] : (window.PROVIDERS ? window.PROVIDERS['vidsrc'] : null);
+    const targetUrl = prov ? (pType === 'movie' ? prov.getMovie(id) : prov.getTv(id, s, e)) : `https://vidsrc.me/embed/movie?tmdb=${id}`;
     console.log("Reproduzindo [", activeKey, "]:", targetUrl);
 
     if (iframe) {
