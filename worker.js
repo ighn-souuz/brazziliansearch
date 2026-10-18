@@ -1,114 +1,71 @@
 /**
- * Cloudflare Worker Proxy for HLS Streams and TMDb API with robust path handling
+ * Cloudflare Worker Proxy & Stream Extractor for Brazilian Streaming Hub
  */
-const TMDB_API_KEY = "9682b1ce677951d528cfd7ea0d9e642a";
-
 addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request));
 });
 
 async function handleRequest(request) {
-  const urlObj = new URL(request.url);
-  
+  const url = new URL(request.url);
+  const targetUrl = url.searchParams.get('url');
+  const extractUrl = url.searchParams.get('extract');
+
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': '*',
   };
 
   if (request.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: corsHeaders
-    });
+    return new Response(null, { headers: corsHeaders });
   }
 
-  let targetUrl = urlObj.searchParams.get('url');
-  
-  if (!targetUrl) {
-    // If path starts with /3/, forward to api.themoviedb.org/3/...
-    if (urlObj.pathname.startsWith('/3/')) {
-      targetUrl = 'https://api.themoviedb.org' + urlObj.pathname + urlObj.search;
-    } else if (urlObj.pathname !== '/' && urlObj.pathname !== '') {
-      // If path is something like /trending/... or /movie/... forward to api.themoviedb.org/3/...
-      targetUrl = 'https://api.themoviedb.org/3' + urlObj.pathname + urlObj.search;
+  // Stream Extractor endpoint
+  if (extractUrl) {
+    try {
+      // Fetch target provider page to extract .m3u8 or .mp4
+      const resp = await fetch(extractUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Referer': new URL(extractUrl).origin
+        }
+      });
+      const html = await resp.text();
+
+      // Simple regex extraction for .m3u8 or .mp4 links in the page
+      const m3u8Match = html.match(/https?:\/\/[^"']+\.m3u8[^"']*/);
+      const mp4Match = html.match(/https?:\/\/[^"']+\.mp4[^"']*/);
+
+      const finalStream = m3u8Match ? m3u8Match[0] : (mp4Match ? mp4Match[0] : extractUrl);
+
+      return new Response(JSON.stringify({ url: finalStream, original: extractUrl }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    } catch (err) {
+      return new Response(JSON.stringify({ url: extractUrl, error: err.message }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
   }
 
-  // If requesting TMDb API, ensure API key is present
-  if (targetUrl && targetUrl.includes('api.themoviedb.org')) {
-    if (!targetUrl.includes('api_key=')) {
-      const separator = targetUrl.includes('?') ? '&' : '?';
-      targetUrl = `${targetUrl}${separator}api_key=${TMDB_API_KEY}`;
-    }
-  }
-
+  // Standard Proxy endpoint (?url=...)
   if (!targetUrl) {
-    return new Response(JSON.stringify({ error: "Missing ?url= or valid API path" }), { 
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response('Brazilian Search Proxy Active. Use ?url=... or ?extract=...', { headers: corsHeaders });
   }
 
   try {
-    const targetParsed = new URL(targetUrl);
-    const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Referer': `${targetParsed.protocol}//${targetParsed.hostname}/`,
-      'Origin': `${targetParsed.protocol}//${targetParsed.hostname}`,
-      'Accept': '*/*'
-    };
-
-    const upstreamResponse = await fetch(targetUrl, {
-      method: 'GET',
-      headers: headers
+    const modifiedRequest = new Request(targetUrl, {
+      headers: request.headers,
+      method: request.method,
+      redirect: 'follow'
     });
-
-    const contentType = upstreamResponse.headers.get('content-type') || '';
-    
-    if (targetUrl.includes('.m3u8') || contentType.includes('mpegurl') || contentType.includes('application/vnd.apple.mpegurl')) {
-      let text = await upstreamResponse.text();
-      const workerBase = `${urlObj.protocol}//${urlObj.host}${urlObj.pathname}`;
-      const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
-
-      const rewritten = text.split('\n').map(line => {
-        line = line.trim();
-        if (!line || line.startsWith('#')) {
-          if (line.includes('URI="')) {
-            return line.replace(/URI="([^"]+)"/, (match, uri) => {
-              const absUri = uri.startsWith('http') ? uri : new URL(uri, baseUrl).href;
-              return `URI="${workerBase}?url=${encodeURIComponent(absUri)}"`;
-            });
-          }
-          return line;
-        }
-        const absUri = line.startsWith('http') ? line : new URL(line, baseUrl).href;
-        return `${workerBase}?url=${encodeURIComponent(absUri)}`;
-      }).join('\n');
-
-      return new Response(rewritten, {
-        status: upstreamResponse.status,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/vnd.apple.mpegurl'
-        }
-      });
-    }
-
-    const newHeaders = new Headers(upstreamResponse.headers);
-    for (const [key, value] of Object.entries(corsHeaders)) {
-      newHeaders.set(key, value);
-    }
-
-    return new Response(upstreamResponse.body, {
-      status: upstreamResponse.status,
-      headers: newHeaders
+    const response = await fetch(modifiedRequest);
+    const newResponse = new Response(response.body, response);
+    Object.keys(corsHeaders).forEach(key => {
+      newResponse.headers.set(key, corsHeaders[key]);
     });
-
-  } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), { 
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return newResponse;
+  } catch (e) {
+    return new Response('Proxy Error: ' + e.message, { status: 500, headers: corsHeaders });
   }
 }

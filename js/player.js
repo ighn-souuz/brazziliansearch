@@ -1,65 +1,110 @@
 /**
- * Hls.js Player Manager with Cloudflare Worker Proxy & Fallback (Dublado PT-BR)
+ * Plyr.js + Hls.js Native Player Integration (Dublado PT-BR via Proxy Extractor)
  */
 window.PROXY_URL = "https://minha-proxy.meucu0108.workers.dev/?url=";
 
 window.PlayerManager = {
+    player: null,
+    hls: null,
     video: null,
     loadingEl: null,
     errorEl: null,
-    currentTmdbId: null,
-    currentType: 'movie',
-    currentSeason: 1,
-    currentEpisode: 1,
 
     async playContent(videoElement, tmdbId, type = 'movie', season = 1, episode = 1, loadingEl, errorEl) {
-        console.log("PlayerManager.playContent called with:", videoElement, tmdbId, type, season, episode, loadingEl, errorEl);
+        this.video = videoElement;
+        this.loadingEl = loadingEl;
+        this.errorEl = errorEl;
+
+        if (this.loadingEl) this.loadingEl.style.display = 'flex';
+        if (this.errorEl) this.errorEl.style.display = 'none';
+
+        const activeKey = window.currentProvider || 'superflix';
+        const providers = window.PROVIDERS || {};
+        const p = providers[activeKey] || providers['superflix'] || {
+            getMovie: (id) => `https://superflixapi.top/filme/${id}`,
+            getTv: (id, s, e) => `https://superflixapi.top/serie/${id}/${s}/${e}`
+        };
+
+        const rawUrl = type === 'movie'
+            ? p.getMovie(tmdbId)
+            : p.getTv(tmdbId, season, episode);
+
+        console.log(`Buscando stream via Proxy Extractor [${activeKey}]: ${rawUrl}`);
+
         try {
-            this.video = videoElement;
-            this.currentTmdbId = tmdbId;
-            this.currentType = type;
-            this.currentSeason = season;
-            this.currentEpisode = episode;
-            this.loadingEl = loadingEl;
-            this.errorEl = errorEl;
+            // Call our Cloudflare Worker Proxy Extractor or fallback to direct embed/stream
+            const proxyEndpoint = `https://minha-proxy.meucu0108.workers.dev/?extract=${encodeURIComponent(rawUrl)}`;
+            
+            let streamUrl = rawUrl;
+            try {
+                const res = await fetch(proxyEndpoint);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.url) {
+                        streamUrl = data.url;
+                    }
+                }
+            } catch (ex) {
+                console.warn("Proxy extract fallback to direct URL:", ex);
+            }
 
-            if (this.loadingEl) this.loadingEl.style.display = 'block';
-            if (this.errorEl) this.errorEl.style.display = 'none';
-
-            const providers = window.PROVIDERS || {
-                superflix: { getMovie: (id) => `https://superflixapi.top/filme/${id}`, getTv: (id, s, e) => `https://superflixapi.top/serie/${id}/${s}/${e}` },
-                warezcdn: { getMovie: (id) => `https://embed.warezcdn.com/filme/${id}`, getTv: (id, s, e) => `https://embed.warezcdn.com/serie/${id}/${s}/${e}` },
-                embedflix: { getMovie: (id) => `https://embedflix.net/filme/${id}`, getTv: (id, s, e) => `https://embedflix.net/serie/${id}/${s}/${e}` },
-                twembed: { getMovie: (id) => `https://www.2embed.cc/embed/${id}`, getTv: (id, s, e) => `https://www.2embed.cc/embedtv/${id}&s=${s}&e=${e}` }
-            };
-
-            const activeKey = window.currentProvider || 'superflix';
-            const p = providers[activeKey] || providers['superflix'];
-
-            const rawUrl = this.currentType === 'movie'
-                ? p.getMovie(this.currentTmdbId)
-                : p.getTv(this.currentTmdbId, this.currentSeason, this.currentEpisode);
-
-            console.log("Carregando stream dublado [${activeKey}]: ${rawUrl}", {activeKey, rawUrl});
-            this.loadStream(rawUrl);
-        } catch (e) {
-            console.error("Error in PlayerManager.playContent:", e);
-            this.handleError(e.message);
+            this.loadSource(streamUrl);
+        } catch (err) {
+            console.error("Erro ao carregar mídia:", err);
+            this.handleError("Erro ao carregar stream dublado.");
         }
-    };
+    },
 
-    loadStream(url) {
-        console.log('PlayerManager.loadStream called with url:', url);
+    loadSource(url) {
         if (this.loadingEl) this.loadingEl.style.display = 'none';
-        const iframe = document.getElementById('player-frame');
+        
         const video = this.video;
+        if (!video) return;
 
-        if (iframe) {
-            iframe.src = url;
-            iframe.style.display = 'block';
+        video.style.display = 'block';
+        const iframe = document.getElementById('player-frame');
+        if (iframe) iframe.style.display = 'none';
+
+        // Initialize HLS.js or Plyr
+        if (url.includes('.m3u8')) {
+            if (Hls.isSupported()) {
+                if (this.hls) {
+                    this.hls.destroy();
+                }
+                this.hls = new Hls();
+                this.hls.loadSource(url);
+                this.hls.attachMedia(video);
+                this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    video.play().catch(e => console.log("Autoplay blocked:", e));
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = url;
+                video.addEventListener('loadedmetadata', () => {
+                    video.play();
+                });
+            }
+        } else {
+            // MP4 or direct video/iframe fallback
+            if (url.includes('superflix') || url.includes('warezcdn') || url.includes('embedflix') || url.includes('2embed')) {
+                // If it's an iframe embed provider page, use iframe
+                if (iframe) {
+                    iframe.src = url;
+                    iframe.style.display = 'block';
+                    video.style.display = 'none';
+                    return;
+                }
+            }
+            video.src = url;
+            video.play().catch(e => console.log("Play error:", e));
         }
-        if (video) {
-            video.style.display = 'none';
+
+        // Initialize Plyr if not already initialized
+        if (!this.player && window.Plyr) {
+            this.player = new Plyr(video, {
+                controls: ['play-large', 'play', 'progress', 'current-time', 'duration', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
+                settings: ['quality', 'speed'],
+                speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] }
+            });
         }
     },
 
@@ -82,7 +127,6 @@ window.chooseProvider = function(key) {
 };
 
 window.playContent = async function(id, type, s, e) {
-    console.log("window.playContent called with", id, type, s, e);
     if (typeof closeDonate === 'function') closeDonate();
     const pType = (type === 'tv' || type === 'serie') ? 'tv' : 'movie';
     window.LAST_PLAY = { id, type: pType, s, e };
