@@ -1,5 +1,5 @@
 /**
- * Plyr.js + Hls.js Native Player Integration (Dublado PT-BR via Proxy Extractor)
+ * Plyr.js + Hls.js Native Player Integration with Fallback & Timeout (Dublado PT-BR)
  */
 window.PROXY_URL = "https://minha-proxy.meucu0108.workers.dev/?url=";
 
@@ -9,6 +9,8 @@ window.PlayerManager = {
     video: null,
     loadingEl: null,
     errorEl: null,
+    timeoutTimer: null,
+    currentRawUrl: null,
 
     async playContent(videoElement, tmdbId, type = 'movie', season = 1, episode = 1, loadingEl, errorEl) {
         this.video = videoElement;
@@ -29,12 +31,12 @@ window.PlayerManager = {
             ? p.getMovie(tmdbId)
             : p.getTv(tmdbId, season, episode);
 
-        console.log(`Buscando stream via Proxy Extractor [${activeKey}]: ${rawUrl}`);
+        this.currentRawUrl = rawUrl;
+        console.log(`Carregando provedor [${activeKey}]: ${rawUrl}`);
 
         try {
-            // Call our Cloudflare Worker Proxy Extractor or fallback to direct embed/stream
+            // Attempt proxy extraction
             const proxyEndpoint = `https://minha-proxy.meucu0108.workers.dev/?extract=${encodeURIComponent(rawUrl)}`;
-            
             let streamUrl = rawUrl;
             try {
                 const res = await fetch(proxyEndpoint);
@@ -48,63 +50,103 @@ window.PlayerManager = {
                 console.warn("Proxy extract fallback to direct URL:", ex);
             }
 
-            this.loadSource(streamUrl);
+            this.loadSource(streamUrl, rawUrl);
         } catch (err) {
             console.error("Erro ao carregar mídia:", err);
-            this.handleError("Erro ao carregar stream dublado.");
+            this.fallbackToIframe(rawUrl);
         }
     },
 
-    loadSource(url) {
-        if (this.loadingEl) this.loadingEl.style.display = 'none';
-        
+    loadSource(url, fallbackUrl) {
         const video = this.video;
+        const iframe = document.getElementById('player-frame');
         if (!video) return;
 
+        // Set timeout of 5 seconds for loading
+        if (this.timeoutTimer) clearTimeout(this.timeoutTimer);
+        this.timeoutTimer = setTimeout(() => {
+            console.warn("Stream loading timeout (5s), falling back to iframe embed.");
+            this.fallbackToIframe(fallbackUrl);
+        }, 5000);
+
         video.style.display = 'block';
-        const iframe = document.getElementById('player-frame');
         if (iframe) iframe.style.display = 'none';
 
-        // Initialize HLS.js or Plyr
         if (url.includes('.m3u8')) {
+            const proxiedM3u8 = `https://minha-proxy.meucu0108.workers.dev/?url=${encodeURIComponent(url)}`;
             if (Hls.isSupported()) {
                 if (this.hls) {
                     this.hls.destroy();
                 }
-                this.hls = new Hls();
-                this.hls.loadSource(url);
+                this.hls = new Hls({
+                    xhrSetup: (xhr, reqUrl) => {
+                        // Pass chunks through proxy if needed
+                    }
+                });
+                this.hls.loadSource(proxiedM3u8);
                 this.hls.attachMedia(video);
+                
                 this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    if (this.timeoutTimer) clearTimeout(this.timeoutTimer);
+                    if (this.loadingEl) this.loadingEl.style.display = 'none';
                     video.play().catch(e => console.log("Autoplay blocked:", e));
                 });
+
+                this.hls.on(Hls.Events.ERROR, (event, data) => {
+                    if (data.fatal) {
+                        console.warn("HLS fatal error, falling back to iframe:", data);
+                        this.fallbackToIframe(fallbackUrl);
+                    }
+                });
             } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                video.src = url;
+                video.src = proxiedM3u8;
                 video.addEventListener('loadedmetadata', () => {
+                    if (this.timeoutTimer) clearTimeout(this.timeoutTimer);
+                    if (this.loadingEl) this.loadingEl.style.display = 'none';
                     video.play();
                 });
             }
         } else {
-            // MP4 or direct video/iframe fallback
+            // Direct video or iframe provider page
             if (url.includes('superflix') || url.includes('warezcdn') || url.includes('embedflix') || url.includes('2embed')) {
-                // If it's an iframe embed provider page, use iframe
-                if (iframe) {
-                    iframe.src = url;
-                    iframe.style.display = 'block';
-                    video.style.display = 'none';
-                    return;
-                }
+                this.fallbackToIframe(url);
+                return;
             }
             video.src = url;
-            video.play().catch(e => console.log("Play error:", e));
+            video.play().then(() => {
+                if (this.timeoutTimer) clearTimeout(this.timeoutTimer);
+                if (this.loadingEl) this.loadingEl.style.display = 'none';
+            }).catch(e => {
+                console.log("Direct play failed, falling back to iframe:", e);
+                this.fallbackToIframe(fallbackUrl);
+            });
         }
 
-        // Initialize Plyr if not already initialized
         if (!this.player && window.Plyr) {
             this.player = new Plyr(video, {
                 controls: ['play-large', 'play', 'progress', 'current-time', 'duration', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
-                settings: ['quality', 'speed'],
-                speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] }
+                settings: ['quality', 'speed']
             });
+        }
+    },
+
+    fallbackToIframe(url) {
+        if (this.timeoutTimer) clearTimeout(this.timeoutTimer);
+        if (this.loadingEl) this.loadingEl.style.display = 'none';
+
+        if (this.hls) {
+            this.hls.destroy();
+            this.hls = null;
+        }
+
+        const video = this.video;
+        const iframe = document.getElementById('player-frame');
+
+        if (video) video.style.display = 'none';
+        if (iframe) {
+            iframe.src = url;
+            iframe.style.display = 'block';
+            console.log("Fallback acionado: exibindo player via iframe embed:", url);
         }
     },
 
