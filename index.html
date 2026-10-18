@@ -1146,7 +1146,7 @@ const HASH_MAP = {
     /* Conteúdo: dublado em PT-BR, bate com os títulos do catálogo */
 
 
-async async function playContent(id, type, s = 1, e = 1) {
+async function playContent(id, type, s = 1, e = 1) {
     if (typeof closeDonate === 'function') closeDonate();
     const pType = (type === 'tv' || type === 'serie') ? 'tv' : 'movie';
     window.LAST_PLAY = { id, type: pType, s, e };
