@@ -763,22 +763,27 @@ footer{margin-top:56px;background:var(--bg2);border-top:1px solid var(--line)}
 <script>
 window.PROVIDERS = {
     vidsrc: {
-        label: "VidSrc (Multi/PT-BR)",
-        getMovie: (id) => `https://vidsrc.me/embed/movie?tmdb=${id}`,
-        getTv: (id, s, e) => `https://vidsrc.me/embed/tv?tmdb=${id}&season=${s}&episode=${e}`
+        label: "VidSrc (PT-BR / Multi)",
+        getMovie: (id) => `https://vidsrc.cc/v2/embed/movie/${id}?autoPlay=1`,
+        getTv: (id, s, e) => `https://vidsrc.cc/v2/embed/tv/${id}/${s}/${e}?autoPlay=1`
+    },
+    vidsrcvip: {
+        label: "VidSrc VIP",
+        getMovie: (id) => `https://vidsrc.vip/embed/movie/${id}`,
+        getTv: (id, s, e) => `https://vidsrc.vip/embed/tv/${id}/${s}/${e}`
     },
     embedsu: {
-        label: "Embed.su (Global / Dublado)",
+        label: "Embed.su",
         getMovie: (id) => `https://embed.su/embed/movie/${id}`,
         getTv: (id, s, e) => `https://embed.su/embed/tv/${id}/${s}/${e}`
     },
     multiembed: {
-        label: "MultiEmbed (Streaming Hub)",
+        label: "MultiEmbed",
         getMovie: (id) => `https://multiembed.mov/?video_id=${id}&tmdb=1`,
         getTv: (id, s, e) => `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}`
     },
     superflix: {
-        label: "SuperFlix (PT-BR)",
+        label: "SuperFlix",
         getMovie: (id) => `https://superflixapi.top/filme/${id}`,
         getTv: (id, s, e) => `https://superflixapi.top/serie/${id}/${s}/${e}`
     }
