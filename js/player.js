@@ -13,36 +13,43 @@ window.PlayerManager = {
     currentEpisode: 1,
 
     async playContent(videoElement, tmdbId, type = 'movie', season = 1, episode = 1, loadingEl, errorEl) {
-        this.video = videoElement;
-        this.currentTmdbId = tmdbId;
-        this.currentType = type;
-        this.currentSeason = season;
-        this.currentEpisode = episode;
-        this.loadingEl = loadingEl;
-        this.errorEl = errorEl;
+        console.log("PlayerManager.playContent called with:", videoElement, tmdbId, type, season, episode, loadingEl, errorEl);
+        try {
+            this.video = videoElement;
+            this.currentTmdbId = tmdbId;
+            this.currentType = type;
+            this.currentSeason = season;
+            this.currentEpisode = episode;
+            this.loadingEl = loadingEl;
+            this.errorEl = errorEl;
 
-        if (this.loadingEl) this.loadingEl.style.display = 'block';
-        if (this.errorEl) this.errorEl.style.display = 'none';
+            if (this.loadingEl) this.loadingEl.style.display = 'block';
+            if (this.errorEl) this.errorEl.style.display = 'none';
 
-        const providers = window.PROVIDERS || {
-            superflix: { getMovie: (id) => `https://superflixapi.top/filme/${id}`, getTv: (id, s, e) => `https://superflixapi.top/serie/${id}/${s}/${e}` },
-            warezcdn: { getMovie: (id) => `https://embed.warezcdn.com/filme/${id}`, getTv: (id, s, e) => `https://embed.warezcdn.com/serie/${id}/${s}/${e}` },
-            embedflix: { getMovie: (id) => `https://embedflix.net/filme/${id}`, getTv: (id, s, e) => `https://embedflix.net/serie/${id}/${s}/${e}` },
-            twembed: { getMovie: (id) => `https://www.2embed.cc/embed/${id}`, getTv: (id, s, e) => `https://www.2embed.cc/embedtv/${id}&s=${s}&e=${e}` }
-        };
+            const providers = window.PROVIDERS || {
+                superflix: { getMovie: (id) => `https://superflixapi.top/filme/${id}`, getTv: (id, s, e) => `https://superflixapi.top/serie/${id}/${s}/${e}` },
+                warezcdn: { getMovie: (id) => `https://embed.warezcdn.com/filme/${id}`, getTv: (id, s, e) => `https://embed.warezcdn.com/serie/${id}/${s}/${e}` },
+                embedflix: { getMovie: (id) => `https://embedflix.net/filme/${id}`, getTv: (id, s, e) => `https://embedflix.net/serie/${id}/${s}/${e}` },
+                twembed: { getMovie: (id) => `https://www.2embed.cc/embed/${id}`, getTv: (id, s, e) => `https://www.2embed.cc/embedtv/${id}&s=${s}&e=${e}` }
+            };
 
-        const activeKey = window.currentProvider || 'superflix';
-        const p = providers[activeKey] || providers['superflix'];
+            const activeKey = window.currentProvider || 'superflix';
+            const p = providers[activeKey] || providers['superflix'];
 
-        const rawUrl = this.currentType === 'movie'
-            ? p.getMovie(this.currentTmdbId)
-            : p.getTv(this.currentTmdbId, this.currentSeason, this.currentEpisode);
+            const rawUrl = this.currentType === 'movie'
+                ? p.getMovie(this.currentTmdbId)
+                : p.getTv(this.currentTmdbId, this.currentSeason, this.currentEpisode);
 
-        console.log(`Carregando stream dublado [${activeKey}]: ${rawUrl}`);
-        this.loadStream(rawUrl);
-    },
+            console.log("Carregando stream dublado [${activeKey}]: ${rawUrl}", {activeKey, rawUrl});
+            this.loadStream(rawUrl);
+        } catch (e) {
+            console.error("Error in PlayerManager.playContent:", e);
+            this.handleError(e.message);
+        }
+    };
 
     loadStream(url) {
+        console.log('PlayerManager.loadStream called with url:', url);
         if (this.loadingEl) this.loadingEl.style.display = 'none';
         const iframe = document.getElementById('player-frame');
         const video = this.video;
@@ -75,6 +82,7 @@ window.chooseProvider = function(key) {
 };
 
 window.playContent = async function(id, type, s, e) {
+    console.log("window.playContent called with", id, type, s, e);
     if (typeof closeDonate === 'function') closeDonate();
     const pType = (type === 'tv' || type === 'serie') ? 'tv' : 'movie';
     window.LAST_PLAY = { id, type: pType, s, e };
