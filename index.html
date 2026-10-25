@@ -767,20 +767,20 @@ window.PROVIDERS = {
         getMovie: (id) => `https://vidsrc.me/embed/movie?tmdb=${id}`,
         getTv: (id, s, e) => `https://vidsrc.me/embed/tv?tmdb=${id}&season=${s}&episode=${e}`
     },
+    vidsrcto: {
+        label: "VidSrc.to (Alternativo)",
+        getMovie: (id) => `https://vidsrc.to/embed/movie/${id}`,
+        getTv: (id, s, e) => `https://vidsrc.to/embed/tv/${id}/${s}/${e}`
+    },
+    multiembed: {
+        label: "MultiEmbed (Hub)",
+        getMovie: (id) => `https://multiembed.mov/?video_id=${id}&tmdb=1`,
+        getTv: (id, s, e) => `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}`
+    },
     vidsrcnl: {
         label: "VidSrc NL",
         getMovie: (id) => `https://player.vidsrc.nl/embed/movie/${id}`,
         getTv: (id, s, e) => `https://player.vidsrc.nl/embed/tv/${id}/${s}/${e}`
-    },
-    multiembed: {
-        label: "MultiEmbed",
-        getMovie: (id) => `https://multiembed.mov/?video_id=${id}&tmdb=1`,
-        getTv: (id, s, e) => `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}`
-    },
-    superflix: {
-        label: "SuperFlix (PT-BR)",
-        getMovie: (id) => `https://superflixapi.top/filme/${id}`,
-        getTv: (id, s, e) => `https://superflixapi.top/serie/${id}/${s}/${e}`
     }
 };
 window.PROVIDER_KEYS = Object.keys(window.PROVIDERS);
@@ -2515,11 +2515,11 @@ loadHome();
     <div id="player-header">
         <button class="p-btn" onclick="closePlayer()">← Voltar</button>
         <div style="display:flex; gap:10px; align-items:center;">
-            <select id="provider-select" class="p-btn" style="background:#222; color:#fff; border:1px solid #444; padding:4px 8px; cursor:pointer; min-width:140px;" onchange="chooseProvider(this.value)">
+                        <select id="provider-select" class="p-btn" style="background:#222; color:#fff; border:1px solid #444; padding:4px 8px; cursor:pointer; min-width:140px;" onchange="chooseProvider(this.value)">
                 <option value="vidsrc">VidSrc (Principal)</option>
+                <option value="vidsrcto">VidSrc.to (Alternativo)</option>
+                <option value="multiembed">MultiEmbed (Hub)</option>
                 <option value="vidsrcnl">VidSrc NL</option>
-                <option value="multiembed">MultiEmbed</option>
-                <option value="superflix">SuperFlix (PT-BR)</option>
             </select>
             <button class="p-btn" onclick="closePlayer()" style="background:#ff4444">✕ Fechar</button>
         </div>
